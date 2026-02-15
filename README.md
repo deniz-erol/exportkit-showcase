@@ -1,6 +1,14 @@
 # ExportKit — Portfolio Showcase
 
 > **Note:** This is a curated portfolio showcase. Implementation details have been redacted. For the full codebase, please contact me directly.
+>
+
+## Sample Screenshots (Subject to change)
+
+<img width="2160" height="1440" alt="image" src="https://github.com/user-attachments/assets/fba1cf88-936d-4f22-8505-9600bfea410d" />
+<img width="2160" height="1440" alt="image" src="https://github.com/user-attachments/assets/162cdaaa-873d-4363-95f1-4b3ee5cde075" />
+<img width="2160" height="1440" alt="image" src="https://github.com/user-attachments/assets/ac41b25c-2380-46be-9b93-de3f7726cf82" />
+
 
 ## Overview
 
