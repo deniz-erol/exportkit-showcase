@@ -1,0 +1,2228 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "ExportKit API",
+    "version": "1.1.0",
+    "description": "Production-ready data export API for SaaS teams. Generate CSV, JSON, and Excel exports with webhooks, signed URLs, email notifications, billing, team management, and scheduling.",
+    "contact": {
+      "name": "ExportKit Support",
+      "email": "support@exportkit.io",
+      "url": "https://exportkit.io"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.exportkit.io",
+      "description": "Production server"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Jobs",
+      "description": "Export job management — create, monitor, and download exports"
+    },
+    {
+      "name": "Keys",
+      "description": "API key management — generate, list, revoke, and configure access keys"
+    },
+    {
+      "name": "Billing",
+      "description": "Subscription and payment management via Stripe"
+    },
+    {
+      "name": "Usage",
+      "description": "Usage metrics and billing period summaries"
+    },
+    {
+      "name": "Auth",
+      "description": "Public authentication — signup, email verification, and resend"
+    },
+    {
+      "name": "AuditLogs",
+      "description": "Immutable audit trail of security-relevant actions"
+    },
+    {
+      "name": "Team",
+      "description": "Team member invitation, listing, role management, and removal"
+    },
+    {
+      "name": "Schedules",
+      "description": "Recurring export schedule management"
+    },
+    {
+      "name": "Account",
+      "description": "GDPR account operations — data export and deletion"
+    },
+    {
+      "name": "Branding",
+      "description": "Customer branding configuration for emails and exports"
+    },
+    {
+      "name": "Webhooks",
+      "description": "Incoming webhook handlers (Stripe)"
+    },
+    {
+      "name": "Documentation",
+      "description": "LLM-friendly API documentation endpoints"
+    }
+  ],
+  "paths": {
+    "/api/jobs": {
+      "post": {
+        "summary": "Create export job",
+        "description": "Create a new data export job (CSV, JSON, or Excel format). The job will be queued and processed asynchronously.",
+        "tags": ["Jobs"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateJobRequest" },
+              "example": {
+                "type": "csv",
+                "payload": {
+                  "table": "users",
+                  "filters": { "status": "active" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Job created successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreateJobResponse" },
+                "example": {
+                  "id": "job_abc123",
+                  "bullmqId": "bull:123",
+                  "status": "QUEUED"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": {
+                  "error": "Invalid request body",
+                  "code": "VALIDATION_ERROR",
+                  "details": [{ "path": ["type"], "message": "Required" }]
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "get": {
+        "summary": "List export jobs",
+        "description": "List all export jobs for the authenticated customer with optional filtering and pagination.",
+        "tags": ["Jobs"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": ["QUEUED", "PROCESSING", "COMPLETED", "FAILED"]
+            },
+            "description": "Filter by job status"
+          },
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/PageSize" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of jobs",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaginatedJobList" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/jobs/{id}": {
+      "get": {
+        "summary": "Get job status",
+        "description": "Get detailed status of a specific export job by ID.",
+        "tags": ["Jobs"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Job ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job status retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Job" },
+                "examples": {
+                  "queued": {
+                    "summary": "Job is queued",
+                    "value": {
+                      "id": "job_abc123",
+                      "status": "QUEUED",
+                      "type": "csv",
+                      "progress": 0,
+                      "createdAt": "2024-01-15T09:00:00Z",
+                      "updatedAt": "2024-01-15T09:00:00Z"
+                    }
+                  },
+                  "completed": {
+                    "summary": "Job completed",
+                    "value": {
+                      "id": "job_abc123",
+                      "status": "COMPLETED",
+                      "type": "csv",
+                      "progress": 100,
+                      "createdAt": "2024-01-15T09:00:00Z",
+                      "updatedAt": "2024-01-15T09:05:00Z",
+                      "result": {
+                        "downloadUrl": "https://r2.exportkit.io/exports/job_abc123.csv",
+                        "expiresAt": "2024-01-15T10:00:00Z",
+                        "recordCount": 1500,
+                        "fileSize": 45000,
+                        "format": "csv",
+                        "key": "exports/job_abc123.csv"
+                      }
+                    }
+                  },
+                  "failed": {
+                    "summary": "Job failed",
+                    "value": {
+                      "id": "job_abc123",
+                      "status": "FAILED",
+                      "type": "csv",
+                      "progress": 45,
+                      "createdAt": "2024-01-15T09:00:00Z",
+                      "updatedAt": "2024-01-15T09:02:00Z",
+                      "error": {
+                        "message": "Database connection timeout",
+                        "code": "DB_TIMEOUT"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": {
+            "description": "Job not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Job not found", "code": "JOB_NOT_FOUND" }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/jobs/{id}/download": {
+      "get": {
+        "summary": "Get download URL",
+        "description": "Generate a fresh signed download URL for a completed export job. The URL expires after 1 hour. Returns 410 Gone if the file has expired and been deleted per the retention policy.",
+        "tags": ["Jobs"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Job ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Download URL generated successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DownloadUrlResponse" },
+                "example": {
+                  "downloadUrl": "https://r2.exportkit.io/exports/job_abc123.csv?X-Amz-Algorithm=...",
+                  "expiresAt": "2024-01-15T10:30:00Z",
+                  "fileExpiresAt": "2024-01-22T10:00:00Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Export not yet complete",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Export not yet complete", "code": "EXPORT_NOT_READY" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": {
+            "description": "Job not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Job not found", "code": "JOB_NOT_FOUND" }
+              }
+            }
+          },
+          "410": {
+            "description": "Export file has expired and been deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" },
+                    "message": { "type": "string" },
+                    "expiredAt": { "type": "string", "format": "date-time" }
+                  }
+                },
+                "example": {
+                  "error": "Gone",
+                  "message": "Export file has expired and been deleted",
+                  "expiredAt": "2024-01-22T09:00:00Z"
+                }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/keys": {
+      "post": {
+        "summary": "Generate API key",
+        "description": "Create a new API key for the authenticated customer. The full key is returned ONLY ONCE in this response. Store it securely — it cannot be retrieved again.",
+        "tags": ["Keys"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateApiKeyRequest" },
+              "example": {
+                "name": "Production API Key",
+                "rateLimit": 1000,
+                "scope": "WRITE"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "API key created successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CreateApiKeyResponse" },
+                "example": {
+                  "id": "key_abc123",
+                  "name": "Production API Key",
+                  "keyPrefix": "ek_live_",
+                  "rateLimit": 1000,
+                  "scope": "WRITE",
+                  "createdAt": "2024-01-15T09:00:00Z",
+                  "key": "ek_live_abc123def456ghi789jkl012mnop345"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "examples": {
+                  "missingName": {
+                    "summary": "Missing name",
+                    "value": { "error": "Name is required and must be a non-empty string", "code": "VALIDATION_ERROR" }
+                  },
+                  "invalidScope": {
+                    "summary": "Invalid scope",
+                    "value": { "error": "Scope must be one of: READ, WRITE, ADMIN", "code": "VALIDATION_ERROR" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "get": {
+        "summary": "List API keys",
+        "description": "List all API keys for the authenticated customer (excluding sensitive key hashes). Supports pagination.",
+        "tags": ["Keys"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/PageSize" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of API keys",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaginatedResponse" },
+                "example": {
+                  "data": [
+                    {
+                      "id": "key_abc123",
+                      "name": "Production API Key",
+                      "keyPrefix": "ek_live_",
+                      "rateLimit": 1000,
+                      "scope": "WRITE",
+                      "allowedIps": [],
+                      "lastUsedAt": "2024-01-15T09:30:00Z",
+                      "expiresAt": null,
+                      "isRevoked": false,
+                      "createdAt": "2024-01-10T00:00:00Z"
+                    }
+                  ],
+                  "pagination": {
+                    "total": 1,
+                    "page": 1,
+                    "pageSize": 20,
+                    "hasNextPage": false
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/keys/{id}": {
+      "delete": {
+        "summary": "Revoke API key",
+        "description": "Revoke an API key by ID. The key must belong to the authenticated customer. Revoked keys cannot be used for authentication but remain in the list for audit purposes.",
+        "tags": ["Keys"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "API key ID"
+          }
+        ],
+        "responses": {
+          "204": { "description": "Key revoked successfully" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": {
+            "description": "API key not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "API key not found", "code": "KEY_NOT_FOUND" }
+              }
+            }
+          },
+          "409": {
+            "description": "API key is already revoked",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "API key is already revoked", "code": "KEY_ALREADY_REVOKED" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "patch": {
+        "summary": "Update API key IP allowlist",
+        "description": "Update the IP allowlist for an API key. Supports IPv4 and IPv6 CIDR notation. An empty array allows requests from any IP.",
+        "tags": ["Keys"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "API key ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["allowedIps"],
+                "properties": {
+                  "allowedIps": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Array of CIDR notation strings (IPv4 or IPv6)"
+                  }
+                }
+              },
+              "example": {
+                "allowedIps": ["192.168.1.0/24", "10.0.0.1/32"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "API key updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" },
+                    "allowedIps": { "type": "array", "items": { "type": "string" } }
+                  }
+                },
+                "example": {
+                  "id": "key_abc123",
+                  "name": "Production API Key",
+                  "allowedIps": ["192.168.1.0/24", "10.0.0.1/32"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Invalid IP/CIDR entries: 999.999.999.999", "code": "VALIDATION_ERROR" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": {
+            "description": "API key not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "API key not found", "code": "KEY_NOT_FOUND" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/billing/checkout": {
+      "post": {
+        "summary": "Create Stripe Checkout session",
+        "description": "Creates a Stripe Checkout session for upgrading to a paid plan. Returns a URL to redirect the customer to Stripe's hosted checkout page.",
+        "tags": ["Billing"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["planTier"],
+                "properties": {
+                  "planTier": {
+                    "type": "string",
+                    "enum": ["PRO", "SCALE"],
+                    "description": "Target plan tier to upgrade to"
+                  }
+                }
+              },
+              "example": { "planTier": "PRO" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Checkout session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "Stripe Checkout session URL"
+                    }
+                  }
+                },
+                "example": { "url": "https://checkout.stripe.com/c/pay/cs_test_abc123..." }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid plan tier",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "planTier must be PRO or SCALE", "code": "VALIDATION_ERROR" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": {
+            "description": "Checkout session creation failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Failed to create checkout session", "code": "CHECKOUT_ERROR" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/billing/portal": {
+      "post": {
+        "summary": "Create Stripe Customer Portal session",
+        "description": "Creates a Stripe Customer Portal session for managing invoices, payment methods, and subscription details.",
+        "tags": ["Billing"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Portal session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "Stripe Customer Portal session URL"
+                    }
+                  }
+                },
+                "example": { "url": "https://billing.stripe.com/p/session/test_abc123..." }
+              }
+            }
+          },
+          "400": {
+            "description": "Portal session creation failed (e.g., no Stripe customer)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "No Stripe customer found for this account", "code": "PORTAL_ERROR" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/usage": {
+      "get": {
+        "summary": "Get current usage summary",
+        "description": "Returns total rows exported, plan limit, percentage consumed, overage info, and billing period dates for the authenticated customer.",
+        "tags": ["Usage"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Usage summary for the current billing period",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UsageSummary" },
+                "example": {
+                  "totalRows": 45000,
+                  "limit": 100000,
+                  "percentUsed": 45,
+                  "overageRows": 0,
+                  "estimatedOverageCharge": 0,
+                  "billingPeriodStart": "2024-01-01T00:00:00Z",
+                  "billingPeriodEnd": "2024-02-01T00:00:00Z"
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/auth/signup": {
+      "post": {
+        "summary": "Sign up for a new account",
+        "description": "Creates a new customer account with email and password. Sends a verification email via Resend. The account starts on the Free plan. Optionally accepts a selected plan tier for post-verification Stripe checkout.",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Customer email address"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "description": "Password (min 8 chars, must include uppercase, lowercase, and number)"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Optional customer/company name"
+                  },
+                  "selectedPlan": {
+                    "type": "string",
+                    "enum": ["FREE", "PRO", "SCALE"],
+                    "description": "Plan tier to select (defaults to FREE)"
+                  }
+                }
+              },
+              "example": {
+                "email": "dev@example.com",
+                "password": "SecurePass1",
+                "name": "Acme Corp",
+                "selectedPlan": "PRO"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created — verification email sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "email": { "type": "string" },
+                    "requiresVerification": { "type": "boolean" }
+                  }
+                },
+                "example": {
+                  "message": "Account created successfully. Please check your email to verify your account.",
+                  "email": "dev@example.com",
+                  "requiresVerification": true
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error (invalid email, weak password)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "examples": {
+                  "invalidEmail": {
+                    "summary": "Invalid email",
+                    "value": { "error": "Invalid email address", "code": "VALIDATION_ERROR" }
+                  },
+                  "weakPassword": {
+                    "summary": "Weak password",
+                    "value": { "error": "Password must be at least 8 characters with uppercase, lowercase, and number", "code": "INVALID_PASSWORD" }
+                  }
+                }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": {
+            "description": "Signup failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Failed to create account", "code": "SIGNUP_FAILED" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/verify-email": {
+      "post": {
+        "summary": "Verify email address",
+        "description": "Verifies a customer's email address using the token from the verification email. Returns a checkout URL if the customer selected a paid plan during signup.",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["token"],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "Email verification token from the verification email"
+                  }
+                }
+              },
+              "example": { "token": "abc123def456..." }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verified successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "verified": { "type": "boolean" },
+                    "checkoutUrl": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "Stripe Checkout URL (only present if paid plan was selected)"
+                    }
+                  }
+                },
+                "examples": {
+                  "freePlan": {
+                    "summary": "Free plan verification",
+                    "value": {
+                      "message": "Email verified successfully. You can now log in.",
+                      "verified": true
+                    }
+                  },
+                  "paidPlan": {
+                    "summary": "Paid plan — redirects to Stripe",
+                    "value": {
+                      "message": "Email verified. Redirecting to payment.",
+                      "verified": true,
+                      "checkoutUrl": "https://checkout.stripe.com/c/pay/cs_test_abc123..."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Invalid or expired verification token", "code": "INVALID_TOKEN" }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": {
+            "description": "Verification failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Failed to verify email", "code": "VERIFICATION_FAILED" }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Verify email (redirect flow)",
+        "description": "Handles email verification link clicks from the verification email. Redirects to the dashboard login page (Free plan) or Stripe Checkout (paid plan). This is the endpoint linked in verification emails.",
+        "tags": ["Auth"],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "token",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Email verification token"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirects to dashboard login or Stripe Checkout"
+          }
+        }
+      }
+    },
+    "/api/auth/resend-verification": {
+      "post": {
+        "summary": "Resend verification email",
+        "description": "Resends the verification email to the specified address. Always returns success to avoid revealing whether the email is registered.",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Email address to resend verification to"
+                  }
+                }
+              },
+              "example": { "email": "dev@example.com" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification email sent (or silently ignored if email not found)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" }
+                  }
+                },
+                "example": {
+                  "message": "If an account exists with this email, a verification link has been sent."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email format",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Invalid email address", "code": "VALIDATION_ERROR" }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": {
+            "description": "Resend failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Failed to resend verification email", "code": "RESEND_FAILED" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/audit-logs": {
+      "get": {
+        "summary": "List audit log entries",
+        "description": "Returns paginated audit log entries for the authenticated customer. Supports filtering by date range and action type.",
+        "tags": ["AuditLogs"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/PageSize" },
+          {
+            "in": "query",
+            "name": "startDate",
+            "schema": { "type": "string", "format": "date-time" },
+            "description": "Filter entries from this date (inclusive)"
+          },
+          {
+            "in": "query",
+            "name": "endDate",
+            "schema": { "type": "string", "format": "date-time" },
+            "description": "Filter entries up to this date (inclusive)"
+          },
+          {
+            "in": "query",
+            "name": "action",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "api_key.create",
+                "api_key.revoke",
+                "login",
+                "password.change",
+                "plan.change",
+                "webhook.update",
+                "branding.update",
+                "account.delete"
+              ]
+            },
+            "description": "Filter by action type"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated audit log entries",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaginatedResponse" },
+                "example": {
+                  "data": [
+                    {
+                      "id": "aud_abc123",
+                      "actorId": "key_abc123",
+                      "action": "api_key.create",
+                      "targetType": "api_key",
+                      "targetId": "key_def456",
+                      "metadata": { "keyName": "New Key", "scope": "WRITE" },
+                      "ipAddress": "192.168.1.1",
+                      "createdAt": "2024-01-15T09:00:00Z"
+                    }
+                  ],
+                  "pagination": {
+                    "total": 42,
+                    "page": 1,
+                    "pageSize": 20,
+                    "hasNextPage": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Invalid query parameters", "code": "VALIDATION_ERROR" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/team": {
+      "get": {
+        "summary": "List team members",
+        "description": "Returns a paginated list of all team members for the authenticated customer's organization.",
+        "tags": ["Team"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/PageSize" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of team members",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaginatedResponse" },
+                "example": {
+                  "data": [
+                    {
+                      "id": "tm_abc123",
+                      "email": "alice@example.com",
+                      "role": "OWNER",
+                      "invitedAt": "2024-01-10T00:00:00Z",
+                      "acceptedAt": "2024-01-10T00:00:00Z"
+                    },
+                    {
+                      "id": "tm_def456",
+                      "email": "bob@example.com",
+                      "role": "MEMBER",
+                      "invitedAt": "2024-01-12T00:00:00Z",
+                      "acceptedAt": "2024-01-12T12:00:00Z"
+                    }
+                  ],
+                  "pagination": {
+                    "total": 2,
+                    "page": 1,
+                    "pageSize": 20,
+                    "hasNextPage": false
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/team/invite": {
+      "post": {
+        "summary": "Invite a team member",
+        "description": "Sends an invitation email to a new team member. Requires ADMIN or OWNER role. The invited user must accept the invitation to join the organization.",
+        "tags": ["Team"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "role"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "maxLength": 255,
+                    "description": "Email address of the person to invite"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": ["ADMIN", "MEMBER"],
+                    "description": "Role to assign to the invited member"
+                  }
+                }
+              },
+              "example": { "email": "bob@example.com", "role": "MEMBER" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Invitation sent",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TeamMember" },
+                "example": {
+                  "id": "tm_def456",
+                  "email": "bob@example.com",
+                  "role": "MEMBER",
+                  "invitedAt": "2024-01-15T09:00:00Z",
+                  "acceptedAt": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Invalid request body", "code": "VALIDATION_ERROR" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": {
+            "description": "Insufficient permissions (requires ADMIN role)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Insufficient permissions", "code": "FORBIDDEN" }
+              }
+            }
+          },
+          "409": {
+            "description": "User is already a team member",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "User is already a member of this organization", "code": "ALREADY_MEMBER" }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/team/accept": {
+      "post": {
+        "summary": "Accept a team invitation",
+        "description": "Accepts a team invitation using the token from the invitation email. Sets the member's password and marks the invitation as accepted. This is a public endpoint — no API key required.",
+        "tags": ["Team"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["token", "password"],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "Invitation token from the invitation email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "description": "Password for the new team member account"
+                  }
+                }
+              },
+              "example": { "token": "invite_abc123...", "password": "SecurePass1" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Invitation accepted",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TeamMember" },
+                "example": {
+                  "id": "tm_def456",
+                  "email": "bob@example.com",
+                  "role": "MEMBER",
+                  "acceptedAt": "2024-01-15T12:00:00Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid token or request body",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "examples": {
+                  "invalidToken": {
+                    "summary": "Invalid or expired token",
+                    "value": { "error": "Invalid or expired invitation token", "code": "INVALID_TOKEN" }
+                  },
+                  "validation": {
+                    "summary": "Validation error",
+                    "value": { "error": "Invalid request body", "code": "VALIDATION_ERROR" }
+                  }
+                }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/team/{id}": {
+      "delete": {
+        "summary": "Remove a team member",
+        "description": "Removes a team member from the organization. Requires ADMIN or OWNER role. The member's access is revoked immediately.",
+        "tags": ["Team"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Team member ID"
+          }
+        ],
+        "responses": {
+          "204": { "description": "Team member removed successfully" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": {
+            "description": "Insufficient permissions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Insufficient permissions", "code": "FORBIDDEN" }
+              }
+            }
+          },
+          "404": {
+            "description": "Team member not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Team member not found", "code": "MEMBER_NOT_FOUND" }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "patch": {
+        "summary": "Update a team member's role",
+        "description": "Updates the role of a team member. Requires OWNER role.",
+        "tags": ["Team"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Team member ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["role"],
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": ["ADMIN", "MEMBER"],
+                    "description": "New role for the team member"
+                  }
+                }
+              },
+              "example": { "role": "ADMIN" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Role updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TeamMember" },
+                "example": {
+                  "id": "tm_def456",
+                  "email": "bob@example.com",
+                  "role": "ADMIN",
+                  "invitedAt": "2024-01-12T00:00:00Z",
+                  "acceptedAt": "2024-01-12T12:00:00Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Invalid request body", "code": "VALIDATION_ERROR" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": {
+            "description": "Insufficient permissions (requires OWNER role)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Insufficient permissions", "code": "FORBIDDEN" }
+              }
+            }
+          },
+          "404": {
+            "description": "Team member not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Team member not found", "code": "MEMBER_NOT_FOUND" }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/schedules": {
+      "post": {
+        "summary": "Create an export schedule",
+        "description": "Creates a new recurring export schedule with a cron expression. The minimum interval is 1 hour.",
+        "tags": ["Schedules"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateScheduleRequest" },
+              "example": {
+                "name": "Daily user export",
+                "cronExpr": "0 2 * * *",
+                "exportType": "csv",
+                "payload": { "table": "users", "filters": { "status": "active" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Schedule created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ExportSchedule" },
+                "example": {
+                  "id": "sched_abc123",
+                  "customerId": "cust_abc123",
+                  "name": "Daily user export",
+                  "cronExpr": "0 2 * * *",
+                  "exportType": "csv",
+                  "payload": { "table": "users", "filters": { "status": "active" } },
+                  "isActive": true,
+                  "lastRunAt": null,
+                  "nextRunAt": "2024-01-16T02:00:00Z",
+                  "createdAt": "2024-01-15T09:00:00Z",
+                  "updatedAt": "2024-01-15T09:00:00Z"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or invalid cron expression",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "examples": {
+                  "validation": {
+                    "summary": "Missing required field",
+                    "value": { "error": "Invalid request body", "code": "VALIDATION_ERROR" }
+                  },
+                  "cronInterval": {
+                    "summary": "Cron interval too short",
+                    "value": { "error": "Cron interval must be at least 1 hour", "code": "INVALID_CRON_EXPRESSION" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "get": {
+        "summary": "List export schedules",
+        "description": "Returns all export schedules for the authenticated customer.",
+        "tags": ["Schedules"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": { "type": "integer", "default": 20 },
+            "description": "Number of schedules to return"
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": { "type": "integer", "default": 0 },
+            "description": "Number of schedules to skip"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of export schedules",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schedules": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/ExportSchedule" }
+                    },
+                    "total": { "type": "integer" }
+                  }
+                },
+                "example": {
+                  "schedules": [
+                    {
+                      "id": "sched_abc123",
+                      "name": "Daily user export",
+                      "cronExpr": "0 2 * * *",
+                      "exportType": "csv",
+                      "isActive": true,
+                      "nextRunAt": "2024-01-16T02:00:00Z"
+                    }
+                  ],
+                  "total": 1
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/schedules/{id}": {
+      "get": {
+        "summary": "Get a schedule",
+        "description": "Returns a single export schedule by ID.",
+        "tags": ["Schedules"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Schedule ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Schedule details",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ExportSchedule" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": {
+            "description": "Schedule not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Schedule not found", "code": "SCHEDULE_NOT_FOUND" }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "patch": {
+        "summary": "Update a schedule",
+        "description": "Updates an existing export schedule. All fields are optional — only provided fields are updated.",
+        "tags": ["Schedules"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Schedule ID"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateScheduleRequest" },
+              "example": {
+                "cronExpr": "0 3 * * *",
+                "isActive": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Schedule updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ExportSchedule" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or invalid cron expression",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": {
+            "description": "Schedule not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Schedule not found", "code": "SCHEDULE_NOT_FOUND" }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "delete": {
+        "summary": "Delete a schedule",
+        "description": "Permanently deletes an export schedule.",
+        "tags": ["Schedules"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Schedule ID"
+          }
+        ],
+        "responses": {
+          "204": { "description": "Schedule deleted successfully" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": {
+            "description": "Schedule not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Schedule not found", "code": "SCHEDULE_NOT_FOUND" }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/account/export-data": {
+      "post": {
+        "summary": "Export account data (GDPR)",
+        "description": "Generates a JSON export of all personal data associated with the authenticated customer. Includes customer record, API keys, jobs, usage records, audit logs, branding settings, and subscription info.",
+        "tags": ["Account"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Account data export",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AccountDataExport" },
+                "example": {
+                  "exportedAt": "2024-01-15T09:00:00Z",
+                  "customer": {
+                    "id": "cust_abc123",
+                    "name": "Acme Corp",
+                    "email": "admin@acme.com",
+                    "emailVerified": true,
+                    "isActive": true,
+                    "createdAt": "2024-01-01T00:00:00Z",
+                    "updatedAt": "2024-01-15T09:00:00Z"
+                  },
+                  "branding": {
+                    "brandColor": "#3B82F6",
+                    "brandLogo": null,
+                    "brandFooter": null,
+                    "emailNotifications": true
+                  },
+                  "apiKeys": [],
+                  "jobs": [],
+                  "usageRecords": [],
+                  "auditLogs": [],
+                  "subscription": null
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": {
+            "description": "Customer not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Customer not found", "code": "CUSTOMER_NOT_FOUND" }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/account/delete": {
+      "post": {
+        "summary": "Delete account (GDPR)",
+        "description": "Schedules full account deletion within 30 days. Deletes all customer data including API keys, jobs, usage records, audit logs, and stored export files in R2. Sends a confirmation email after deletion.",
+        "tags": ["Account"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "responses": {
+          "202": {
+            "description": "Account deletion scheduled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "customerId": { "type": "string" },
+                    "filesDeleted": { "type": "integer", "description": "Number of R2 files deleted" },
+                    "deletedAt": { "type": "string", "format": "date-time" }
+                  }
+                },
+                "example": {
+                  "message": "Account deletion has been scheduled and will complete within 30 days.",
+                  "customerId": "cust_abc123",
+                  "filesDeleted": 12,
+                  "deletedAt": "2024-01-15T09:00:00Z"
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": {
+            "description": "Customer not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Customer not found", "code": "CUSTOMER_NOT_FOUND" }
+              }
+            }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/branding": {
+      "get": {
+        "summary": "Get branding settings",
+        "description": "Retrieve the current branding configuration (color, logo, footer, email notification preference) for the authenticated customer.",
+        "tags": ["Branding"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Branding settings",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BrandingSettings" },
+                "example": {
+                  "brandColor": "#3B82F6",
+                  "brandLogo": "https://example.com/logo.png",
+                  "brandFooter": "Powered by Acme Corp",
+                  "emailNotifications": true
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "patch": {
+        "summary": "Update branding settings",
+        "description": "Update the branding configuration for the authenticated customer. All fields are optional — only provided fields are updated.",
+        "tags": ["Branding"],
+        "security": [{ "ApiKeyAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateBrandingRequest" },
+              "example": {
+                "brandColor": "#FF5733",
+                "brandLogo": "https://example.com/new-logo.png",
+                "emailNotifications": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Branding updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BrandingSettings" },
+                "example": {
+                  "brandColor": "#FF5733",
+                  "brandLogo": "https://example.com/new-logo.png",
+                  "brandFooter": "Powered by Acme Corp",
+                  "emailNotifications": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input (e.g., bad hex color format)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Invalid brandColor format. Must be a hex code (e.g., #000000)", "code": "VALIDATION_ERROR" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/api/webhooks/stripe": {
+      "post": {
+        "summary": "Stripe webhook handler",
+        "description": "Handles incoming Stripe webhook events for subscription lifecycle management. Requires a valid `stripe-signature` header for verification. This endpoint uses raw body parsing.",
+        "tags": ["Webhooks"],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "stripe-signature",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Stripe webhook signature for event verification"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "description": "Raw Stripe event payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook processed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "received": { "type": "boolean" }
+                  }
+                },
+                "example": { "received": true }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid signature or webhook processing error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": { "error": "Missing stripe-signature header" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/llms.txt": {
+      "get": {
+        "summary": "LLM-friendly API description",
+        "description": "Returns a plain-text description of the ExportKit API optimized for consumption by Large Language Models and AI agents. No authentication required.",
+        "tags": ["Documentation"],
+        "responses": {
+          "200": {
+            "description": "Plain-text API description",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "# ExportKit API\n\nExportKit is a SaaS API providing drop-in data export infrastructure..."
+              }
+            }
+          }
+        }
+      }
+    },
+    "/llms-full.txt": {
+      "get": {
+        "summary": "Detailed LLM-friendly API description",
+        "description": "Returns a comprehensive plain-text description of the ExportKit API with full request/response schemas, optimized for consumption by Large Language Models and AI agents. No authentication required.",
+        "tags": ["Documentation"],
+        "responses": {
+          "200": {
+            "description": "Detailed plain-text API description with schemas",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "# ExportKit API\n\nExportKit is a SaaS API providing drop-in data export infrastructure...\n\n## Detailed Request/Response Schemas..."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "Page": {
+        "in": "query",
+        "name": "page",
+        "schema": { "type": "integer", "minimum": 1, "default": 1 },
+        "description": "Page number (1-indexed)"
+      },
+      "PageSize": {
+        "in": "query",
+        "name": "pageSize",
+        "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 },
+        "description": "Number of items per page (max 100)"
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Unauthorized — invalid or missing API key",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": { "error": "Unauthorized", "code": "UNAUTHORIZED" }
+          }
+        }
+      },
+      "RateLimited": {
+        "description": "Rate limit exceeded",
+        "headers": {
+          "Retry-After": {
+            "schema": { "type": "integer" },
+            "description": "Seconds until the rate limit resets"
+          },
+          "X-RateLimit-Limit": {
+            "schema": { "type": "integer" },
+            "description": "Maximum requests allowed in the window"
+          },
+          "X-RateLimit-Remaining": {
+            "schema": { "type": "integer" },
+            "description": "Remaining requests in the current window"
+          },
+          "X-RateLimit-Reset": {
+            "schema": { "type": "integer" },
+            "description": "Unix timestamp when the rate limit window resets"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+            "example": { "error": "Too many requests", "code": "RATE_LIMIT_EXCEEDED" }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string", "description": "Human-readable error message" },
+          "code": { "type": "string", "description": "Machine-readable error code (UPPER_SNAKE_CASE)" },
+          "details": {
+            "type": "array",
+            "items": { "type": "object" },
+            "description": "Validation error details (when applicable)"
+          }
+        },
+        "required": ["error", "code"]
+      },
+      "PaginatedResponse": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "type": "object" } },
+          "pagination": { "$ref": "#/components/schemas/PaginationMeta" }
+        }
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "properties": {
+          "total": { "type": "integer", "description": "Total number of items" },
+          "page": { "type": "integer", "description": "Current page number" },
+          "pageSize": { "type": "integer", "description": "Items per page" },
+          "hasNextPage": { "type": "boolean", "description": "Whether more pages exist" }
+        }
+      },
+      "Job": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Unique job identifier" },
+          "status": { "type": "string", "enum": ["QUEUED", "PROCESSING", "COMPLETED", "FAILED"] },
+          "type": { "type": "string", "enum": ["csv", "json", "xlsx"] },
+          "progress": { "type": "integer", "description": "Progress percentage (0-100)" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "result": {
+            "type": "object",
+            "properties": {
+              "downloadUrl": { "type": "string" },
+              "expiresAt": { "type": "string", "format": "date-time" },
+              "recordCount": { "type": "integer" },
+              "fileSize": { "type": "integer" },
+              "format": { "type": "string" },
+              "key": { "type": "string" }
+            }
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "message": { "type": "string" },
+              "code": { "type": "string" }
+            }
+          }
+        }
+      },
+      "CreateJobRequest": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["csv", "json", "xlsx"],
+            "description": "Export format type"
+          },
+          "payload": {
+            "type": "object",
+            "description": "Custom payload for the export job",
+            "default": {}
+          }
+        }
+      },
+      "CreateJobResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "bullmqId": { "type": "string" },
+          "status": { "type": "string", "enum": ["QUEUED", "PROCESSING", "COMPLETED", "FAILED"] }
+        }
+      },
+      "PaginatedJobList": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/Job" } },
+          "pagination": { "$ref": "#/components/schemas/PaginationMeta" }
+        }
+      },
+      "DownloadUrlResponse": {
+        "type": "object",
+        "properties": {
+          "downloadUrl": { "type": "string", "description": "Signed URL for downloading the export file" },
+          "expiresAt": { "type": "string", "format": "date-time", "description": "When the signed URL expires" },
+          "fileExpiresAt": { "type": "string", "format": "date-time", "description": "When the file will be permanently deleted" }
+        }
+      },
+      "ApiKey": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Unique key identifier" },
+          "name": { "type": "string", "description": "Descriptive name for the key" },
+          "keyPrefix": { "type": "string", "description": "First 8 characters of the key (for identification)" },
+          "scope": { "type": "string", "enum": ["READ", "WRITE", "ADMIN"], "description": "Permission scope" },
+          "allowedIps": { "type": "array", "items": { "type": "string" }, "description": "IP allowlist (CIDR notation)" },
+          "rateLimit": { "type": "integer", "description": "Requests per minute limit" },
+          "lastUsedAt": { "type": "string", "format": "date-time", "nullable": true },
+          "expiresAt": { "type": "string", "format": "date-time", "nullable": true },
+          "isRevoked": { "type": "boolean" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateApiKeyRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "description": "Descriptive name for the key", "minLength": 1, "maxLength": 100 },
+          "rateLimit": { "type": "integer", "description": "Requests per minute limit (1-10000)", "minimum": 1, "maximum": 10000, "default": 100 },
+          "scope": { "type": "string", "enum": ["READ", "WRITE", "ADMIN"], "description": "Permission scope (defaults to WRITE)", "default": "WRITE" }
+        }
+      },
+      "CreateApiKeyResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "keyPrefix": { "type": "string" },
+          "rateLimit": { "type": "integer" },
+          "scope": { "type": "string", "enum": ["READ", "WRITE", "ADMIN"] },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "key": { "type": "string", "description": "FULL API KEY — ONLY SHOWN ONCE. Store securely." }
+        }
+      },
+      "UsageSummary": {
+        "type": "object",
+        "properties": {
+          "totalRows": { "type": "integer", "description": "Total rows exported in the current billing period" },
+          "limit": { "type": "integer", "description": "Plan's monthly row limit" },
+          "percentUsed": { "type": "number", "description": "Percentage of plan limit consumed" },
+          "overageRows": { "type": "integer", "description": "Rows exceeding the plan limit" },
+          "estimatedOverageCharge": { "type": "integer", "description": "Estimated overage charge in cents" },
+          "billingPeriodStart": { "type": "string", "format": "date-time" },
+          "billingPeriodEnd": { "type": "string", "format": "date-time" }
+        }
+      },
+      "TeamMember": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "description": "Team member ID" },
+          "email": { "type": "string", "format": "email" },
+          "role": { "type": "string", "enum": ["OWNER", "ADMIN", "MEMBER"] },
+          "invitedAt": { "type": "string", "format": "date-time" },
+          "acceptedAt": { "type": "string", "format": "date-time", "nullable": true }
+        }
+      },
+      "ExportSchedule": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "customerId": { "type": "string" },
+          "name": { "type": "string", "description": "Human-readable schedule name" },
+          "cronExpr": { "type": "string", "description": "Cron expression (minimum 1-hour interval)" },
+          "exportType": { "type": "string", "enum": ["csv", "json", "xlsx"] },
+          "payload": { "type": "object", "description": "Export job payload" },
+          "isActive": { "type": "boolean" },
+          "lastRunAt": { "type": "string", "format": "date-time", "nullable": true },
+          "nextRunAt": { "type": "string", "format": "date-time", "nullable": true },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateScheduleRequest": {
+        "type": "object",
+        "required": ["name", "cronExpr", "exportType"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "cronExpr": { "type": "string", "minLength": 1, "maxLength": 100, "description": "Cron expression (minimum 1-hour interval)" },
+          "exportType": { "type": "string", "enum": ["csv", "json", "xlsx"] },
+          "payload": { "type": "object", "default": {} }
+        }
+      },
+      "UpdateScheduleRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "cronExpr": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "exportType": { "type": "string", "enum": ["csv", "json", "xlsx"] },
+          "payload": { "type": "object" },
+          "isActive": { "type": "boolean" }
+        }
+      },
+      "BrandingSettings": {
+        "type": "object",
+        "properties": {
+          "brandColor": { "type": "string", "description": "Hex color code (e.g., #3B82F6)", "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$" },
+          "brandLogo": { "type": "string", "format": "uri", "nullable": true, "description": "URL to brand logo image" },
+          "brandFooter": { "type": "string", "nullable": true, "description": "Custom footer text for emails" },
+          "emailNotifications": { "type": "boolean", "description": "Whether email notifications are enabled" }
+        }
+      },
+      "UpdateBrandingRequest": {
+        "type": "object",
+        "properties": {
+          "brandColor": { "type": "string", "pattern": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$" },
+          "brandLogo": { "type": "string", "format": "uri" },
+          "brandFooter": { "type": "string" },
+          "emailNotifications": { "type": "boolean" }
+        }
+      },
+      "AccountDataExport": {
+        "type": "object",
+        "properties": {
+          "exportedAt": { "type": "string", "format": "date-time" },
+          "customer": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "email": { "type": "string" },
+              "emailVerified": { "type": "boolean" },
+              "isActive": { "type": "boolean" },
+              "createdAt": { "type": "string", "format": "date-time" },
+              "updatedAt": { "type": "string", "format": "date-time" }
+            }
+          },
+          "branding": { "$ref": "#/components/schemas/BrandingSettings" },
+          "apiKeys": { "type": "array", "items": { "$ref": "#/components/schemas/ApiKey" } },
+          "jobs": { "type": "array", "items": { "$ref": "#/components/schemas/Job" } },
+          "usageRecords": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "jobId": { "type": "string" },
+                "rowCount": { "type": "integer" },
+                "billingPeriod": { "type": "string" },
+                "recordedAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          },
+          "auditLogs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "actorId": { "type": "string" },
+                "action": { "type": "string" },
+                "targetType": { "type": "string" },
+                "targetId": { "type": "string" },
+                "metadata": { "type": "object" },
+                "ipAddress": { "type": "string" },
+                "createdAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          },
+          "subscription": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "id": { "type": "string" },
+              "status": { "type": "string" },
+              "currentPeriodStart": { "type": "string", "format": "date-time" },
+              "currentPeriodEnd": { "type": "string", "format": "date-time" },
+              "cancelAtPeriodEnd": { "type": "boolean" },
+              "createdAt": { "type": "string", "format": "date-time" },
+              "plan": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "tier": { "type": "string", "enum": ["FREE", "PRO", "SCALE"] }
+                }
+              }
+            }
+          }
+        }
+      },
+      "AuditLogEntry": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "actorId": { "type": "string", "description": "ID of the actor (API key or user) that performed the action" },
+          "action": {
+            "type": "string",
+            "enum": ["api_key.create", "api_key.revoke", "login", "password.change", "plan.change", "webhook.update", "branding.update", "account.delete"],
+            "description": "Type of action performed"
+          },
+          "targetType": { "type": "string", "description": "Type of resource affected" },
+          "targetId": { "type": "string", "description": "ID of the affected resource" },
+          "metadata": { "type": "object", "description": "Additional context about the action" },
+          "ipAddress": { "type": "string", "description": "Source IP address" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API key for authentication. Generate keys via the Dashboard or POST /api/keys endpoint."
+      }
+    }
+  }
+}

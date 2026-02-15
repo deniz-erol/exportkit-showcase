@@ -1,0 +1,66 @@
+{
+  "name": "@exportkit/mcp-server",
+  "version": "1.0.0",
+  "description": "Model Context Protocol (MCP) server for ExportKit API integration",
+  "type": "module",
+  "bin": {
+    "exportkit-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "PUBLISHING.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/exportkit/exportkit.git",
+    "directory": "packages/mcp-server"
+  },
+  "homepage": "https://docs.exportkit.io/agent-integration/mcp-server",
+  "bugs": {
+    "url": "https://github.com/exportkit/exportkit/issues"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "prepublishOnly": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "export",
+    "csv",
+    "json",
+    "excel",
+    "exportkit",
+    "ai",
+    "llm",
+    "claude"
+  ],
+  "author": "ExportKit",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0",
+    "vitest": "^2.0.0"
+  }
+}

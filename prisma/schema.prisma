@@ -1,0 +1,351 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+generator dashboard {
+  provider = "prisma-client-js"
+  output   = "../dashboard/node_modules/.prisma/client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// Plan defines a subscription tier with pricing and limits.
+model Plan {
+  id                  String         @id @default(cuid())
+  tier                PlanTier       @unique
+  name                String         @db.VarChar(50)
+  monthlyRowLimit     Int
+  monthlyPriceCents   Int
+  overagePer1000Cents Int
+  features            Json
+  createdAt           DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime       @updatedAt @db.Timestamptz(3)
+  subscriptions       Subscription[]
+
+  @@map("plans")
+}
+
+/// Subscription links a customer to a plan with Stripe billing info.
+model Subscription {
+  id                   String   @id @default(cuid())
+  customerId           String   @unique
+  planId               String
+  stripeCustomerId     String?  @db.VarChar(255)
+  stripeSubscriptionId String?  @db.VarChar(255)
+  status               String   @default("active") @db.VarChar(20)
+  currentPeriodStart   DateTime @db.Timestamptz(3)
+  currentPeriodEnd     DateTime @db.Timestamptz(3)
+  cancelAtPeriodEnd    Boolean  @default(false)
+  createdAt            DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime @updatedAt @db.Timestamptz(3)
+  customer             Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  plan                 Plan     @relation(fields: [planId], references: [id])
+
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
+  @@map("subscriptions")
+}
+
+/// UsageRecord tracks export row counts per job for billing.
+model UsageRecord {
+  id            String   @id @default(cuid())
+  customerId    String
+  jobId         String   @unique
+  rowCount      Int
+  billingPeriod String   @db.VarChar(7)
+  recordedAt    DateTime @default(now()) @db.Timestamptz(3)
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, billingPeriod])
+  @@map("usage_records")
+}
+
+/// UsageAlert tracks which threshold alerts have been sent per billing period.
+model UsageAlert {
+  id            String   @id @default(cuid())
+  customerId    String
+  billingPeriod String   @db.VarChar(7)
+  threshold     Int
+  sentAt        DateTime @default(now()) @db.Timestamptz(3)
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, billingPeriod, threshold])
+  @@map("usage_alerts")
+}
+
+/// AuditLog stores immutable records of security-relevant actions.
+/// Insert-only: no updates or deletes allowed at the application level.
+model AuditLog {
+  id         String   @id @default(cuid())
+  customerId String
+  actorId    String   @db.VarChar(255)
+  action     String   @db.VarChar(50)
+  targetType String   @db.VarChar(50)
+  targetId   String   @db.VarChar(255)
+  metadata   Json?
+  ipAddress  String   @db.VarChar(45)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([customerId, createdAt])
+  @@index([customerId, action])
+  @@map("audit_logs")
+}
+
+/// Account stores OAuth provider linkages for NextAuth.
+/// Managed by NextAuth's Prisma adapter.
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              Customer @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+/// Session stores active user sessions for NextAuth.
+/// Only used if session strategy is "database" (we use "jwt").
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         Customer @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// VerificationToken stores email verification tokens for NextAuth.
+/// Used for magic link authentication (not implemented yet).
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+/// Customer represents a SaaS tenant using the export API.
+/// Each customer can have multiple API keys and export jobs.
+model Customer {
+  id                   String            @id @default(cuid())
+  name                 String            @db.VarChar(255)
+  email                String            @unique @db.VarChar(255)
+  passwordHash         String?           @db.VarChar(255)
+  emailVerified        DateTime?         @db.Timestamptz(3)
+  createdAt            DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime          @updatedAt @db.Timestamptz(3)
+  isActive             Boolean           @default(true)
+  webhookUrl           String?           @db.VarChar(500)
+  webhookSecret        String?           @db.VarChar(255)
+  webhookActive        Boolean           @default(false)
+  webhookFailCount     Int               @default(0)
+  webhookLastSuccess   DateTime?         @db.Timestamptz(3)
+  notifyBeforeDeletion Boolean           @default(false)
+  brandColor           String?           @db.VarChar(7)
+  brandLogo            String?           @db.VarChar(500)
+  brandFooter          String?           @db.VarChar(1000)
+  emailNotifications   Boolean           @default(true)
+  emailVerifyExpiry    DateTime?         @db.Timestamptz(3)
+  emailVerifyToken     String?           @db.VarChar(255)
+  onboardingStep       String?           @db.VarChar(20)
+  selectedPlanTier     String?           @db.VarChar(20)
+  retentionDays        Int               @default(7)
+  tosAcceptedAt        DateTime?         @db.Timestamptz(3)
+  tosVersion           String?           @db.VarChar(20)
+  subProcessorOptIn    Boolean           @default(false)
+  marketingEmails      Boolean           @default(false)
+  deletedAt            DateTime?         @db.Timestamptz(3)
+  accounts             Account[]
+  sessions             Session[]
+  apiKeys              ApiKey[]
+  exportSchedules      ExportSchedule[]
+  jobs                 Job[]
+  subscription         Subscription?
+  teamMembers          TeamMember[]
+  usageAlerts          UsageAlert[]
+  usageRecords         UsageRecord[]
+  webhookDeliveries    WebhookDelivery[]
+
+  @@map("customers")
+}
+
+/// ApiKey stores hashed API keys for customer authentication.
+/// The actual key is only shown once at creation time.
+model ApiKey {
+  id         String      @id @default(cuid())
+  customerId String
+  name       String      @db.VarChar(100)
+  keyHash    String      @unique @db.VarChar(255)
+  keyPrefix  String      @db.VarChar(10)
+  rateLimit  Int         @default(100)
+  lastUsedAt DateTime?   @db.Timestamptz(3)
+  expiresAt  DateTime?   @db.Timestamptz(3)
+  isRevoked  Boolean     @default(false)
+  revokedAt  DateTime?   @db.Timestamptz(3)
+  createdAt  DateTime    @default(now()) @db.Timestamptz(3)
+  scope      ApiKeyScope @default(WRITE)
+  allowedIps String[]
+  customer   Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  jobs       Job[]
+
+  @@index([keyHash])
+  @@index([customerId])
+  @@map("api_keys")
+}
+
+/// WebhookDelivery tracks webhook delivery attempts and their status.
+/// Used for retry logic, circuit breaker patterns, and audit trails.
+model WebhookDelivery {
+  id           String                @id @default(cuid())
+  jobId        String
+  customerId   String
+  event        String                @db.VarChar(50)
+  payload      Json
+  status       WebhookDeliveryStatus @default(PENDING)
+  attempts     Int                   @default(0)
+  httpStatus   Int?
+  errorMessage String?
+  deliveredAt  DateTime?             @db.Timestamptz(3)
+  nextRetryAt  DateTime?             @db.Timestamptz(3)
+  createdAt    DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime              @updatedAt @db.Timestamptz(3)
+  customer     Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, status])
+  @@index([jobId])
+  @@index([status, nextRetryAt])
+  @@map("webhook_deliveries")
+}
+
+/// Job tracks an export request from queueing through completion.
+/// Links to BullMQ for job processing correlation.
+model Job {
+  id                 String    @id @default(cuid())
+  bullmqId           String    @unique
+  customerId         String
+  apiKeyId           String?
+  status             JobStatus @default(QUEUED)
+  type               String    @db.VarChar(50)
+  payload            Json
+  result             Json?
+  error              Json?
+  progress           Int       @default(0)
+  attemptsMade       Int       @default(0)
+  startedAt          DateTime? @db.Timestamptz(3)
+  completedAt        DateTime? @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(3)
+  fileExpiresAt      DateTime? @db.Timestamptz(3)
+  deletionNotifiedAt DateTime? @db.Timestamptz(3)
+  apiKey             ApiKey?   @relation(fields: [apiKeyId], references: [id])
+  customer           Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId, status])
+  @@index([bullmqId])
+  @@index([fileExpiresAt])
+  @@map("jobs")
+}
+
+/// ExportSchedule stores recurring export configurations with cron expressions.
+/// Used by the schedule worker to automatically create export jobs on a schedule.
+model ExportSchedule {
+  id         String    @id @default(cuid())
+  customerId String
+  name       String    @db.VarChar(255)
+  cronExpr   String    @db.VarChar(100)
+  exportType String    @db.VarChar(50)
+  payload    Json
+  isActive   Boolean   @default(true)
+  lastRunAt  DateTime? @db.Timestamptz(3)
+  nextRunAt  DateTime? @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @db.Timestamptz(3)
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([isActive, nextRunAt])
+  @@map("export_schedules")
+}
+
+/// TeamMember links users to a customer organization with role-based access.
+/// Invitations are tracked via acceptedAt (null = pending invitation).
+model TeamMember {
+  id           String    @id @default(cuid())
+  customerId   String
+  email        String    @db.VarChar(255)
+  passwordHash String?   @db.VarChar(255)
+  role         TeamRole  @default(MEMBER)
+  invitedAt    DateTime  @default(now()) @db.Timestamptz(3)
+  acceptedAt   DateTime? @db.Timestamptz(3)
+  inviteToken  String?   @unique @db.VarChar(255)
+  removedAt    DateTime? @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(3)
+  customer     Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, email])
+  @@map("team_members")
+}
+
+/// PlanTier represents the subscription tier levels.
+enum PlanTier {
+  FREE
+  PRO
+  SCALE
+
+  @@map("plan_tier")
+}
+
+/// ApiKeyScope defines the permission level for an API key.
+enum ApiKeyScope {
+  READ
+  WRITE
+  ADMIN
+
+  @@map("api_key_scope")
+}
+
+/// JobStatus represents the possible states of an export job.
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+
+  @@map("job_status")
+}
+
+/// WebhookDeliveryStatus represents the possible states of a webhook delivery attempt.
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+
+  @@map("webhook_delivery_status")
+}
+
+/// TeamRole defines the permission level for team members.
+enum TeamRole {
+  OWNER
+  ADMIN
+  MEMBER
+
+  @@map("team_role")
+}
