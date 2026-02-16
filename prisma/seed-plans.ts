@@ -21,7 +21,7 @@ const plans = [
     tier: PlanTier.PRO,
     name: "Pro",
     monthlyRowLimit: 1_000_000,
-    monthlyPriceCents: 4900, // $49/mo
+    monthlyPriceCents: 2900, // $29/mo
     overagePer1000Cents: 10, // $0.10 per 1000 rows
     features: {
       priorityQueue: true,
@@ -35,7 +35,7 @@ const plans = [
     tier: PlanTier.SCALE,
     name: "Scale",
     monthlyRowLimit: 10_000_000,
-    monthlyPriceCents: 19900, // $199/mo
+    monthlyPriceCents: 9900, // $99/mo
     overagePer1000Cents: 5, // $0.05 per 1000 rows
     features: {
       priorityQueue: true,
