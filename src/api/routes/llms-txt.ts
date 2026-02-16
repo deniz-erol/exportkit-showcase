@@ -27,11 +27,11 @@ All API requests require an API key passed via the X-API-Key header.
 Example:
 X-API-Key: your-api-key-here
 
-API keys can be created and managed through the Dashboard at https://exportkit.io/dashboard/settings/keys
+API keys can be created and managed through the Dashboard at https://exportkit.dev/dashboard/settings/keys
 
 ## Base URL
 
-Production: https://api.exportkit.io
+Production: https://api.exportkit.dev
 API Version: v1
 
 ## Core Endpoints
@@ -116,7 +116,7 @@ Rate limit headers are included in all responses:
 
 ExportKit can send webhook notifications when jobs complete or fail.
 
-Configure webhooks in the Dashboard at https://exportkit.io/dashboard/settings/webhooks
+Configure webhooks in the Dashboard at https://exportkit.dev/dashboard/settings/webhooks
 
 Webhook payload:
 {
@@ -166,9 +166,9 @@ Common error codes:
 
 ## Support
 
-Documentation: https://docs.exportkit.io
-Dashboard: https://exportkit.io/dashboard
-Support: support@exportkit.io
+Documentation: https://docs.exportkit.dev
+Dashboard: https://exportkit.dev/dashboard
+Support: support@exportkit.dev
 `;
 
   if (!full) {
@@ -256,7 +256,7 @@ PUT /api/v1/keys/:id/allowed-ips
 ## OpenAPI Specification
 
 Full OpenAPI 3.0 spec available at:
-https://api.exportkit.io/openapi.json
+https://api.exportkit.dev/openapi.json
 `;
 
   return fullContent;

@@ -6,8 +6,8 @@
     "description": "Production-ready data export API for SaaS teams. Generate CSV, JSON, and Excel exports with webhooks, signed URLs, email notifications, billing, team management, and scheduling.",
     "contact": {
       "name": "ExportKit Support",
-      "email": "support@exportkit.io",
-      "url": "https://exportkit.io"
+      "email": "support@exportkit.dev",
+      "url": "https://exportkit.dev"
     },
     "license": {
       "name": "MIT",
@@ -16,7 +16,7 @@
   },
   "servers": [
     {
-      "url": "https://api.exportkit.io",
+      "url": "https://api.exportkit.dev",
       "description": "Production server"
     },
     {
@@ -212,7 +212,7 @@
                       "createdAt": "2024-01-15T09:00:00Z",
                       "updatedAt": "2024-01-15T09:05:00Z",
                       "result": {
-                        "downloadUrl": "https://r2.exportkit.io/exports/job_abc123.csv",
+                        "downloadUrl": "https://r2.exportkit.dev/exports/job_abc123.csv",
                         "expiresAt": "2024-01-15T10:00:00Z",
                         "recordCount": 1500,
                         "fileSize": 45000,
@@ -277,7 +277,7 @@
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/DownloadUrlResponse" },
                 "example": {
-                  "downloadUrl": "https://r2.exportkit.io/exports/job_abc123.csv?X-Amz-Algorithm=...",
+                  "downloadUrl": "https://r2.exportkit.dev/exports/job_abc123.csv?X-Amz-Algorithm=...",
                   "expiresAt": "2024-01-15T10:30:00Z",
                   "fileExpiresAt": "2024-01-22T10:00:00Z"
                 }

@@ -64,7 +64,7 @@ For other MCP clients, configure the server with:
 - **Command**: `npx -y @exportkit/mcp-server` (or `exportkit-mcp` if installed globally)
 - **Environment Variables**:
   - `EXPORTKIT_API_KEY` (required): Your ExportKit API key
-  - `EXPORTKIT_BASE_URL` (optional): Custom API base URL (default: `https://api.exportkit.io`)
+  - `EXPORTKIT_BASE_URL` (optional): Custom API base URL (default: `https://api.exportkit.dev`)
 
 ## Usage
 
@@ -163,7 +163,7 @@ Get the current status of an export job.
     "createdAt": "2024-01-15T09:00:00Z",
     "updatedAt": "2024-01-15T09:05:00Z",
     "result": {
-      "downloadUrl": "https://r2.exportkit.io/exports/job_abc123.csv",
+      "downloadUrl": "https://r2.exportkit.dev/exports/job_abc123.csv",
       "expiresAt": "2024-01-15T10:00:00Z",
       "recordCount": 1500,
       "fileSize": 45000,
@@ -233,7 +233,7 @@ Generate a fresh signed download URL for a completed export.
 ```json
 {
   "success": true,
-  "downloadUrl": "https://r2.exportkit.io/exports/job_abc123.csv?X-Amz-Algorithm=...",
+  "downloadUrl": "https://r2.exportkit.dev/exports/job_abc123.csv?X-Amz-Algorithm=...",
   "expiresAt": "2024-01-15T10:30:00Z",
   "fileExpiresAt": "2024-01-22T10:00:00Z",
   "message": "Download URL generated successfully. The URL expires in 1 hour."
@@ -286,12 +286,12 @@ npm run dev
 
 ## API Reference
 
-For complete API documentation, visit [https://docs.exportkit.io](https://docs.exportkit.io)
+For complete API documentation, visit [https://docs.exportkit.dev](https://docs.exportkit.dev)
 
 ## Support
 
-- **Documentation**: [https://docs.exportkit.io](https://docs.exportkit.io)
-- **Email**: support@exportkit.io
+- **Documentation**: [https://docs.exportkit.dev](https://docs.exportkit.dev)
+- **Email**: support@exportkit.dev
 
 ## License
 

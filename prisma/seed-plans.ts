@@ -22,7 +22,7 @@ const plans = [
     name: "Pro",
     monthlyRowLimit: 1_000_000,
     monthlyPriceCents: 2900, // $29/mo
-    overagePer1000Cents: 10, // $0.10 per 1000 rows
+    overagePer1000Cents: 0, // No overage — hard cap
     features: {
       priorityQueue: true,
       customRetention: true,
@@ -36,7 +36,7 @@ const plans = [
     name: "Scale",
     monthlyRowLimit: 10_000_000,
     monthlyPriceCents: 9900, // $99/mo
-    overagePer1000Cents: 5, // $0.05 per 1000 rows
+    overagePer1000Cents: 0, // No overage — hard cap
     features: {
       priorityQueue: true,
       customRetention: true,

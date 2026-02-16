@@ -31,7 +31,7 @@ function getConfig(): ExportKitConfig {
 
   return {
     apiKey,
-    baseUrl: process.env.EXPORTKIT_BASE_URL || 'https://api.exportkit.io',
+    baseUrl: process.env.EXPORTKIT_BASE_URL || 'https://api.exportkit.dev',
   };
 }
 

@@ -128,7 +128,7 @@ import logger from "../../lib/logger.js";
  *           format: date-time
  *           description: When the file will be permanently deleted
  *       example:
- *         downloadUrl: https://r2.exportkit.io/exports/job_abc123.csv?X-Amz-Algorithm=...
+ *         downloadUrl: https://r2.exportkit.dev/exports/job_abc123.csv?X-Amz-Algorithm=...
  *         expiresAt: "2024-01-15T10:30:00Z"
  *         fileExpiresAt: "2024-01-22T10:00:00Z"
  *     ErrorResponse:
@@ -356,7 +356,7 @@ router.get(
  *                   createdAt: "2024-01-15T09:00:00Z"
  *                   updatedAt: "2024-01-15T09:05:00Z"
  *                   result:
- *                     downloadUrl: https://r2.exportkit.io/exports/job_abc123.csv
+ *                     downloadUrl: https://r2.exportkit.dev/exports/job_abc123.csv
  *                     expiresAt: "2024-01-15T10:00:00Z"
  *                     recordCount: 1500
  *                     fileSize: 45000

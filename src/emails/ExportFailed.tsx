@@ -42,7 +42,7 @@ export const ExportFailed = ({
 
         <Section className="text-center mb-8">
           <Button
-            href="mailto:support@exportkit.io"
+            href="mailto:support@exportkit.dev"
             className="bg-gray-900 text-white font-bold px-6 py-3 rounded-md text-center no-underline inline-block hover:bg-gray-800"
           >
             Contact Support

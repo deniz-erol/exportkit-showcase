@@ -18,7 +18,7 @@ export class ExportKitClient {
   private readonly apiKey: string;
   private readonly baseUrl: string;
 
-  constructor(apiKey: string, baseUrl: string = 'https://api.exportkit.io') {
+  constructor(apiKey: string, baseUrl: string = 'https://api.exportkit.dev') {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
   }

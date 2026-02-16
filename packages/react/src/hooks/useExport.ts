@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import type { ExportConfig, ExportResult, JobStatus } from '../types';
 import { createJob, getJobStatus, getDownloadUrl, ExportKitError } from '../lib/api-client';
 
-const DEFAULT_BASE_URL = 'https://api.exportkit.io';
+const DEFAULT_BASE_URL = 'https://api.exportkit.dev';
 const POLL_INTERVAL_MS = 1000;
 
 /**

@@ -133,7 +133,7 @@ describe('getJobStatus', () => {
       createdAt: '2024-01-15T09:00:00Z',
       updatedAt: '2024-01-15T09:05:00Z',
       result: {
-        downloadUrl: 'https://r2.exportkit.io/exports/job_completed.json',
+        downloadUrl: 'https://r2.exportkit.dev/exports/job_completed.json',
         expiresAt: '2024-01-15T10:00:00Z',
         recordCount: 1500,
         fileSize: 45000,
@@ -286,7 +286,7 @@ describe('downloadExport', () => {
 
   it('should generate download URL successfully', async () => {
     const mockResponse = {
-      downloadUrl: 'https://r2.exportkit.io/exports/job_abc123.csv?X-Amz-Algorithm=...',
+      downloadUrl: 'https://r2.exportkit.dev/exports/job_abc123.csv?X-Amz-Algorithm=...',
       expiresAt: '2024-01-15T10:30:00Z',
       fileExpiresAt: '2024-01-22T10:00:00Z',
     };

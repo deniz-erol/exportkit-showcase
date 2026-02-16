@@ -1,6 +1,6 @@
 import type { ExportConfig, Job, ExportResult } from '../types';
 
-const DEFAULT_BASE_URL = 'https://api.exportkit.io';
+const DEFAULT_BASE_URL = 'https://api.exportkit.dev';
 
 /**
  * API error with additional context

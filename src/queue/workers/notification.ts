@@ -154,7 +154,7 @@ async function processNotificationJob(job: Job<EmailJobData>): Promise<void> {
 
       case "welcome": {
         const dashboardUrl = process.env.DASHBOARD_URL || "http://localhost:3001";
-        const docsUrl = process.env.DOCS_URL || "https://docs.exportkit.io";
+        const docsUrl = process.env.DOCS_URL || "https://docs.exportkit.dev";
 
         emailHtml = await render(
           React.createElement(Welcome, {
@@ -216,7 +216,7 @@ async function processNotificationJob(job: Job<EmailJobData>): Promise<void> {
     }
 
     const data = await getResend().emails.send({
-      from: process.env.EMAIL_FROM || "ExportKit <notifications@exportkit.io>",
+      from: process.env.EMAIL_FROM || "ExportKit <notifications@exportkit.dev>",
       to,
       subject,
       html: emailHtml,
