@@ -55,7 +55,7 @@ export const pricingPlans: readonly PlanConfig[] = [
     name: "Pro",
     monthlyRowLimit: 1_000_000,
     monthlyPriceCents: 4900,
-    overagePer1000Cents: 10,
+    overagePer1000Cents: 0,
     features: {
       priorityQueue: true,
       customRetention: true,
@@ -70,7 +70,7 @@ export const pricingPlans: readonly PlanConfig[] = [
     name: "Scale",
     monthlyRowLimit: 10_000_000,
     monthlyPriceCents: 19900,
-    overagePer1000Cents: 5,
+    overagePer1000Cents: 0,
     features: {
       priorityQueue: true,
       customRetention: true,

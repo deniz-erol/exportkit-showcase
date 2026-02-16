@@ -21,7 +21,7 @@ const plans = [
     tier: PlanTier.PRO,
     name: "Pro",
     monthlyRowLimit: 1_000_000,
-    monthlyPriceCents: 2900, // $29/mo
+    monthlyPriceCents: 4900, // $49/mo
     overagePer1000Cents: 0, // No overage — hard cap
     features: {
       priorityQueue: true,
@@ -35,7 +35,7 @@ const plans = [
     tier: PlanTier.SCALE,
     name: "Scale",
     monthlyRowLimit: 10_000_000,
-    monthlyPriceCents: 9900, // $99/mo
+    monthlyPriceCents: 19900, // $199/mo
     overagePer1000Cents: 0, // No overage — hard cap
     features: {
       priorityQueue: true,
